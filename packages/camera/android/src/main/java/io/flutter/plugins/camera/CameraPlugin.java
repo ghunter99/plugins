@@ -181,10 +181,11 @@ public class CameraPlugin implements MethodCallHandler {
         {
           String cameraName = call.argument("cameraName");
           String resolutionPreset = call.argument("resolutionPreset");
+          boolean withVideo = call.argument("withVideo");
           if (camera != null) {
             camera.close();
           }
-          camera = new Camera(cameraName, resolutionPreset, result);
+          camera = new Camera(cameraName, resolutionPreset, withVideo, result);
           this.activity
               .getApplication()
               .registerActivityLifecycleCallbacks(this.activityLifecycleCallbacks);
@@ -284,7 +285,11 @@ public class CameraPlugin implements MethodCallHandler {
     private MediaRecorder mediaRecorder;
     private boolean recordingVideo;
 
-    Camera(final String cameraName, final String resolutionPreset, @NonNull final Result result) {
+    Camera(
+            final String cameraName,
+            final String resolutionPreset,
+            final boolean withVideo,
+            @NonNull final Result result) {
 
       this.cameraName = cameraName;
       textureEntry = view.createSurfaceTexture();
@@ -332,7 +337,7 @@ public class CameraPlugin implements MethodCallHandler {
                       "cameraPermission", "MediaRecorderCamera permission not granted", null);
                   return;
                 }
-                if (!hasAudioPermission()) {
+                if (withVideo && !hasAudioPermission()) {
                   result.error(
                       "cameraPermission", "MediaRecorderAudio permission not granted", null);
                   return;
@@ -341,15 +346,19 @@ public class CameraPlugin implements MethodCallHandler {
               }
             };
         requestingPermission = false;
-        if (hasCameraPermission() && hasAudioPermission()) {
+        if (hasCameraPermission() && (withVideo ? hasAudioPermission() : true)) {
           cameraPermissionContinuation.run();
         } else {
           if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             requestingPermission = true;
+            String[] permissions =
+                    withVideo
+                    ? new String[] {Manifest.permission.CAMERA, Manifest.permission.RECORD_AUDIO}
+                    : new String[] {Manifest.permission.CAMERA};
             registrar
                 .activity()
                 .requestPermissions(
-                    new String[] {Manifest.permission.CAMERA, Manifest.permission.RECORD_AUDIO},
+                    permissions,
                     CAMERA_REQUEST_ID);
           }
         }
